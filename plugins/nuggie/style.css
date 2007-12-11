@@ -1,0 +1,32 @@
+div.blog-post-header {
+  border-bottom: 1px solid #C0C0C0;
+  margin: 0 0 10px 0;
+  padding: 0 0 3px 0;
+}
+div.blog-post-header div.blog-post-datemark {
+  float: right;
+  text-align: center;
+  font-weight: bold;
+  color: #505050;
+  background-color: #E0E0E0;
+  font-size: 12pt;
+  padding: 7px;
+}
+div.blog-post-header h3 {
+  font-size: 16pt;
+  font-family: myriad pro, verdana, arial, helvetica, sans-serif;
+  font-weight: normal;
+  margin-bottom: 4px;
+}
+div.blog-post-header h3 a {
+  color: #202020;
+  text-decoration: none;
+  border-bottom: 1px dotted #C0C0C0;
+}
+div.blog-post-header h3 a:hover {
+  border-bottom: 1px solid #808080;
+  color: #305070;
+}
+div.blog-post-body {
+  clear: both;
+}
