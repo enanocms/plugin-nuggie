@@ -150,6 +150,12 @@ TPLBLOCK;
     $strings['PERMALINK'] = makeUrlNS('Blog', $this->post_author . date('/Y/n/j/', $this->post_timestamp) . $this->post_title_clean, false, true);
     $strings['EDIT_LINK'] = makeUrlNS('Special', "Preferences/Blog/Write/{$this->post_id}", false, true);
     
+    /*
+     * FIXME: Make this a real colored userpage link
+     */
+    
+    $strings['USER_LINK'] = '&lt;fixme&gt;' . htmlspecialchars($this->post_author) . '&lt;/fixme&gt;';
+    
     if ( $this->num_comments == 0 )
       $comment_string = 'No comments';
     else if ( $this->num_comments == 1 )
