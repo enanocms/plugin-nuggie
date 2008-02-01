@@ -42,6 +42,10 @@ $plugins->attachHook('base_classes_initted', '
     {
       require( ENANO_ROOT . "/plugins/nuggie/usercp.php" );
     }
+    else if ( $page_id == "Search" && $namespace == "Special" )
+    {
+      require( ENANO_ROOT . "/plugins/nuggie/search.php" );
+    }
   ');
 
 $plugins->attachHook('acl_rule_init', 'nuggie_namespace_setup();');

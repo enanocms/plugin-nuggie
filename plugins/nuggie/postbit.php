@@ -315,6 +315,7 @@ function nuggie_blog_uri_handler($uri)
     $template->header();
     echo '&lt; <a href="' . makeUrlNS('Blog', $row['username']) . '">' . htmlspecialchars($row['blog_name']) . '</a>';
     echo $postbit->render_post();
+    display_page_footers();
     $template->footer();
     
     return true;
