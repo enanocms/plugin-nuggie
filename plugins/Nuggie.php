@@ -40,6 +40,7 @@ $plugins->attachHook('base_classes_initted', '
     
     if ( $page_id == "Preferences" && $namespace == "Special" )
     {
+      $template->add_header("<link rel=\"stylesheet\" type=\"text/css\" href=\"' . scriptPath . '/plugins/nuggie/client/usercp.css\" />");
       require( ENANO_ROOT . "/plugins/nuggie/usercp.php" );
     }
     else if ( $page_id == "Search" && $namespace == "Special" )

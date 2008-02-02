@@ -262,7 +262,210 @@ function nuggie_user_cp($section)
       
       break;
     case 'Posts':
-      echo 'module Posts';
+      if ( $paths->getParam(2) == 'AjaxHandler' )
+      {
+        ob_end_clean();
+        
+        if ( !isset($_POST['act']) )
+          die();
+        
+        switch($_POST['act'])
+        {
+          case 'delete':
+            header('Content-type: application/json');
+            
+            if ( !isset($_POST['post_id']) )
+              die();
+            
+            if ( strval(intval($_POST['post_id'])) !== $_POST['post_id'] )
+              die();
+            
+            // make sure it's ok
+            $post_id =& $_POST['post_id'];
+            $post_id = intval($post_id);
+            $q = $db->sql_query('SELECT post_author FROM ' . table_prefix . 'blog_posts WHERE post_id = ' . $post_id . ';');
+            if ( !$q )
+              $db->die_json();
+            if ( $db->numrows() < 1 )
+              die('That post doesn\'t exist.');
+            
+            list($author) = $db->fetchrow_num();
+            $author = intval($author);
+            if ( $author !== $session->user_id && !$session->get_permissions('nuggie_edit_other') )
+              die('No permissions');
+            
+            // try to delete the post...
+            $q = $db->sql_query('DELETE FROM ' . table_prefix . 'blog_posts WHERE post_id = ' . $post_id . ';');
+            if ( !$q )
+              $db->die_json();
+            
+            echo '1';
+            
+            break;
+          case 'publish':
+            if ( !isset($_POST['post_id']) )
+              die();
+            
+            if ( strval(intval($_POST['post_id'])) !== $_POST['post_id'] )
+              die();
+            
+            if ( !in_array(@$_POST['state'], array('0', '1')) )
+              die();
+            
+            $state = intval($_POST['state']);
+            $post_id =& $_POST['post_id'];
+            $post_id = intval($post_id);
+            
+            // validate permissions
+            $q = $db->sql_query('SELECT post_author FROM ' . table_prefix . 'blog_posts WHERE post_id = ' . $post_id . ';');
+            if ( !$q )
+              $db->die_json();
+            if ( $db->numrows() < 1 )
+              die('That post doesn\'t exist.');
+            
+            list($author) = $db->fetchrow_num();
+            $author = intval($author);
+            if ( $author !== $session->user_id && !$session->get_permissions('nuggie_edit_other') )
+              die('No permissions');
+            
+            // try to delete the post...
+            $q = $db->sql_query('UPDATE ' . table_prefix . 'blog_posts SET post_published = ' . $state . ' WHERE post_id = ' . $post_id . ';');
+            if ( !$q )
+              $db->die_json();
+            
+            echo "good;$state";
+             
+            break;
+        }
+        
+        $db->close();
+        exit();
+      }
+      
+      if ( isset($_POST['action']) )
+      {
+        $action =& $_POST['action'];
+        // Parse parameters
+        if ( strpos($action, ';') )
+        {
+          // Parameter section
+          $parms = substr($action, strpos($action, ';') + 1);
+          
+          // Action name section
+          $action = substr($action, 0, strpos($action, ';'));
+          
+          // Match all parameters
+          preg_match_all('/([a-z0-9_]+)=(.+?)(;|$)/', $parms, $matches);
+          $parms = array();
+          
+          // For each full parameter, assign $parms an associative value
+          foreach ( $matches[0] as $i => $_ )
+          {
+            $parm = $matches[2][$i];
+            
+            // Is this parameter in the form of an integer?
+            // (designed to ease validation later)
+            if ( preg_match('/^[0-9]+$/', $parm) )
+              // Yes, run intval(), this enabling is_int()-ish checks
+              $parm = intval($parm);
+            
+            $parms[$matches[1][$i]] = $parm;
+          }
+        }
+        switch ( $action )
+        {
+          case 'edit':
+            if ( !is_int(@$parms['id']) )
+              break;
+            // This is hackish. Really, REALLY hackish.
+            $_SERVER['PATH_INFO'] = '.../' . $paths->nslist['Special'] . 'Preferences/Blog/Write/' . $parms['id'];
+            nuggie_user_cp('Blog');
+            return true;
+            break;
+          case 'delete':
+            
+            if ( !is_int(@$parms['id']) )
+              break;
+            
+            // make sure it's ok
+            $post_id = $parms['id'];
+            $post_id = intval($post_id);
+            $q = $db->sql_query('SELECT post_author FROM ' . table_prefix . 'blog_posts WHERE post_id = ' . $post_id . ';');
+            if ( !$q )
+              $db->_die();
+            if ( $db->numrows() < 1 )
+              die('That post doesn\'t exist.');
+            
+            list($author) = $db->fetchrow_num();
+            $author = intval($author);
+            if ( $author !== $session->user_id && !$session->get_permissions('nuggie_edit_other') )
+              die('No permissions');
+            
+            // try to delete the post...
+            $q = $db->sql_query('DELETE FROM ' . table_prefix . 'blog_posts WHERE post_id = ' . $post_id . ';');
+            if ( !$q )
+              $db->_die();
+            
+            echo '<div class="info-box" style="margin: 0 0 0 0;">Post deleted.</div>';
+            
+            break;
+        }
+      }
+      
+      // include some javascript for management
+      echo '<script type="text/javascript" src="' . scriptPath . '/plugins/nuggie/client/usercp.js"></script>';
+      
+      // the form
+      // +------------------+------------+------+-----+---------+----------------+
+      // | Field            | Type       | Null | Key | Default | Extra          |
+      // +------------------+------------+------+-----+---------+----------------+
+      // | post_id          | int(15)    | NO   | PRI | NULL    | auto_increment | 
+      // | post_title       | text       | NO   |     |         |                | 
+      // | post_title_clean | text       | NO   |     |         |                | 
+      // | post_author      | int(12)    | NO   |     | 1       |                | 
+      // | post_text        | longtext   | NO   |     |         |                | 
+      // | post_timestamp   | int(32)    | NO   |     | 0       |                | 
+      // | post_published   | tinyint(1) | NO   |     | 0       |                | 
+      // +------------------+------------+------+-----+---------+----------------+
+      
+      echo '<form action="' . makeUrlNS('Special', 'Preferences/Blog/Posts') . '" method="post">';
+      
+      $q = $db->sql_query('SELECT post_id, post_title, post_title_clean, post_timestamp, post_published FROM ' . table_prefix . 'blog_posts WHERE post_author = ' . $session->user_id . ' ORDER BY post_timestamp DESC;');
+      if ( !$q )
+        $db->_die();
+      
+      echo '<div class="tblholder">
+              <table border="0" cellspacing="1" cellpadding="4">';
+              
+      echo '<tr>
+              <th style="width: 1px;">#</th>
+              <th style="width: 80%;">Post title</th>
+              <th>Published</th>
+              <th>Time</th>
+              <th colspan="2"></th>
+            </tr>';
+      
+      while ( $row = $db->fetchrow() )
+      {
+        echo '<tr>';
+        
+        $uri = makeUrlNS('Blog', $session->username . date('/Y/n/j/', $row['post_timestamp']) . $row['post_title_clean'], false, true);
+        
+        echo '<td class="row2" style="text-align: center;">' . $row['post_id'] . '</td>';
+        echo '<td class="row1">' . "<a href=\"$uri\">" . htmlspecialchars($row['post_title']) . '</a></td>';
+        $cls = ( $row['post_published'] == 1 ) ? 'row3_green' : 'row3_red';
+        echo '<td class="' . $cls . ' nuggie_publishbtn" onclick="ajaxNuggieTogglePublished(' . $row['post_id'] . ', this);" nuggie:published="' . $row['post_published'] . '" style="text-align: center;">' . ( ( $row['post_published'] == 1 ) ? '<b>Yes</b>' : 'No' ) . '</td>';
+        echo '<td class="row3" style="white-space: nowrap;">' . ( function_exists('enano_date') ? enano_date('Y-m-d', $row['post_timestamp']) : date('Y-m-d h:i', $row['post_timestamp']) ) . '</td>';
+        echo '<td class="row1" style="white-space: nowrap;"><button class="nuggie_edit" name="action" value="edit;id=' . $row['post_id'] . '">Edit</button> <button class="nuggie_delete" name="action" onclick="return ajaxNuggieDeletePost(' . $row['post_id'] . ', this.parentNode.parentNode);" value="delete;id=' . $row['post_id'] . '">Delete</button></td>';
+        
+        echo '</tr>';
+      }
+      
+      echo '  </table>
+            </div>';
+      
+      echo '</form>';
+      
       break;
     case 'Write':
       

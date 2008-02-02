@@ -1,0 +1,22 @@
+.nuggie_edit, .nuggie_delete {
+  border-width: 0;
+  color: #202020;
+  background-color: #F0F0F0;
+  cursor: pointer;
+  background-image: none;
+}
+
+.nuggie_edit:hover {
+  color: #FFF;
+  background-color: #008800;
+}
+
+.nuggie_delete:hover {
+  color: #FFF;
+  background-color: #AA0000;
+}
+
+.nuggie_publishbtn {
+  cursor: pointer;
+}
+
