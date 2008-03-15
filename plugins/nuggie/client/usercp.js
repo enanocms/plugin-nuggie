@@ -35,7 +35,7 @@ function ajaxNuggieDeletePost(id, row)
             }
             var fader = new Spry.Effect.Highlight(row, {to:'#AA0000', duration: 750});
             fader.start();
-            setTimeout('_global_ng_row.parentNode.removeChild(_global_ng_row);', 750);
+            setTimeout('_global_ng_row.parentNode.removeChild(_global_ng_row); nuggie_check_postlist_empty();', 750);
           }
           else
           {
@@ -48,6 +48,21 @@ function ajaxNuggieDeletePost(id, row)
   catch(e)
   {
     return true;
+  }
+}
+
+function nuggie_check_postlist_empty()
+{
+  if ( document.getElementById('nuggie_postlist').childNodes.length == 1 )
+  {
+    var td = document.createElement('td');
+    td.className = 'row3';
+    td.setAttribute('colspan', '6');
+    td.appendChild(document.createTextNode('No posts.'));
+    td.style.textAlign = 'center';
+    var tr = document.createElement('tr');
+    tr.appendChild(td);
+    document.getElementById('nuggie_postlist').appendChild(tr);
   }
 }
 

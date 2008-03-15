@@ -436,7 +436,7 @@ function nuggie_user_cp($section)
         $db->_die();
       
       echo '<div class="tblholder">
-              <table border="0" cellspacing="1" cellpadding="4">';
+              <table border="0" cellspacing="1" cellpadding="4" id="nuggie_postlist">';
               
       echo '<tr>
               <th style="width: 1px;">#</th>
@@ -446,20 +446,27 @@ function nuggie_user_cp($section)
               <th colspan="2"></th>
             </tr>';
       
-      while ( $row = $db->fetchrow() )
+      if ( $row = $db->fetchrow() )
       {
-        echo '<tr>';
-        
-        $uri = makeUrlNS('Blog', $session->username . date('/Y/n/j/', $row['post_timestamp']) . $row['post_title_clean'], false, true);
-        
-        echo '<td class="row2" style="text-align: center;">' . $row['post_id'] . '</td>';
-        echo '<td class="row1">' . "<a href=\"$uri\">" . htmlspecialchars($row['post_title']) . '</a></td>';
-        $cls = ( $row['post_published'] == 1 ) ? 'row3_green' : 'row3_red';
-        echo '<td class="' . $cls . ' nuggie_publishbtn" onclick="ajaxNuggieTogglePublished(' . $row['post_id'] . ', this);" nuggie:published="' . $row['post_published'] . '" style="text-align: center;">' . ( ( $row['post_published'] == 1 ) ? '<b>Yes</b>' : 'No' ) . '</td>';
-        echo '<td class="row3" style="white-space: nowrap;">' . ( function_exists('enano_date') ? enano_date('Y-m-d', $row['post_timestamp']) : date('Y-m-d h:i', $row['post_timestamp']) ) . '</td>';
-        echo '<td class="row1" style="white-space: nowrap;"><button class="nuggie_edit" name="action" value="edit;id=' . $row['post_id'] . '">Edit</button> <button class="nuggie_delete" name="action" onclick="return ajaxNuggieDeletePost(' . $row['post_id'] . ', this.parentNode.parentNode);" value="delete;id=' . $row['post_id'] . '">Delete</button></td>';
-        
-        echo '</tr>';
+        do
+        {
+          echo '<tr>';
+          
+          $uri = makeUrlNS('Blog', $session->username . date('/Y/n/j/', $row['post_timestamp']) . $row['post_title_clean'], false, true);
+          
+          echo '<td class="row2" style="text-align: center;">' . $row['post_id'] . '</td>';
+          echo '<td class="row1">' . "<a href=\"$uri\">" . htmlspecialchars($row['post_title']) . '</a></td>';
+          $cls = ( $row['post_published'] == 1 ) ? 'row3_green' : 'row3_red';
+          echo '<td class="' . $cls . ' nuggie_publishbtn" onclick="ajaxNuggieTogglePublished(' . $row['post_id'] . ', this);" nuggie:published="' . $row['post_published'] . '" style="text-align: center;">' . ( ( $row['post_published'] == 1 ) ? '<b>Yes</b>' : 'No' ) . '</td>';
+          echo '<td class="row3" style="white-space: nowrap;">' . ( function_exists('enano_date') ? enano_date('Y-m-d', $row['post_timestamp']) : date('Y-m-d h:i', $row['post_timestamp']) ) . '</td>';
+          echo '<td class="row1" style="white-space: nowrap;"><button class="nuggie_edit" name="action" value="edit;id=' . $row['post_id'] . '">Edit</button> <button class="nuggie_delete" name="action" onclick="return ajaxNuggieDeletePost(' . $row['post_id'] . ', this.parentNode.parentNode);" value="delete;id=' . $row['post_id'] . '">Delete</button></td>';
+          
+          echo '</tr>';
+        } while ( $row = $db->fetchrow() );
+      }
+      else
+      {
+        echo '<tr><td class="row3" colspan="6" style="text-align: center;">No posts.</td></tr>';
       }
       
       echo '  </table>
