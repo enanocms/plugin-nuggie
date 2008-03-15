@@ -379,6 +379,7 @@ function nuggie_user_cp($section)
               break;
             // This is hackish. Really, REALLY hackish.
             $_SERVER['PATH_INFO'] = '.../' . $paths->nslist['Special'] . 'Preferences/Blog/Write/' . $parms['id'];
+            $_GET['title'] = $paths->nslist['Special'] . 'Preferences/Blog/Write/' . $parms['id'];
             nuggie_user_cp('Blog');
             return true;
             break;

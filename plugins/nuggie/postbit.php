@@ -94,7 +94,10 @@ class NuggiePostbit
   {
     global $db, $session, $paths, $template, $plugins; // Common objects
     
-    if ( file_exists( ENANO_ROOT . "/themes/{$template->theme_id}/blog_post.tpl" ) )
+    if ( empty($template->theme) )
+      $template->load_theme();
+    
+    if ( file_exists( ENANO_ROOT . "/themes/{$template->theme}/blog_post.tpl" ) )
     {
       $parser = $template->makeParser('blog_post.tpl');
     }
@@ -283,7 +286,7 @@ function nuggie_blog_uri_handler($uri)
     // entire blog, and they'll be inherited unless individual posts have overriding permissions.
     $perms_blog = $session->fetch_page_acl($row['username'], 'Blog');
     $perms = $session->fetch_page_acl("{$row['post_timestamp']}_{$row['post_id']}", 'Blog');
-    $perms->perms = $session->acl_merge($perms->perms, $perms_post->perms);
+    $perms->perms = $session->acl_merge($perms->perms, $perms_blog->perms);
     unset($perms_blog);
     
     if ( $row['blog_type'] == 'private' )
