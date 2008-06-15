@@ -153,11 +153,16 @@ TPLBLOCK;
     $strings['PERMALINK'] = makeUrlNS('Blog', $this->post_author . date('/Y/n/j/', $this->post_timestamp) . $this->post_title_clean, false, true);
     $strings['EDIT_LINK'] = makeUrlNS('Special', "Preferences/Blog/Write/{$this->post_id}", false, true);
     
-    /*
-     * FIXME: Make this a real colored userpage link
-     */
-    
-    $strings['USER_LINK'] = '&lt;fixme&gt;' . htmlspecialchars($this->post_author) . '&lt;/fixme&gt;';
+    // if we're on an enano with user rank support, cool. if not, just don't link
+    if ( method_exists($session, 'get_user_rank') )
+    {
+      $rank_data = $session->get_user_rank($this->post_author);
+      $strings['USER_LINK'] = '<a href="' . makeUrlNS('User', $this->post_author, false, true) . '" style="' . $rank_data['rank_style'] . '" title="' . htmlspecialchars($rank_data['rank_title']) . '">' . htmlspecialchars($this->post_author) . '</a>';
+    }
+    else
+    {
+      $strings['USER_LINK'] = '<a href="' . makeUrlNS('User', $this->post_author, false, true) . '" style="' . $rank_data['rank_style'] . '">' . htmlspecialchars($this->post_author) . '</a>';
+    }
     
     if ( $this->num_comments == 0 )
       $comment_string = 'No comments';
@@ -313,7 +318,17 @@ function nuggie_blog_uri_handler($uri)
     $postbit->auth_edit = $perms->get_permissions($acl_type);
     $postbit->num_comments = intval($row['num_comments']);
     
-    $template->tpl_strings['PAGE_NAME'] = htmlspecialchars($row['post_title']) . ' &laquo; ' . htmlspecialchars($row['blog_name']);
+    $page_name = htmlspecialchars($row['post_title']) . ' &laquo; ' . htmlspecialchars($row['blog_name']);
+    if ( method_exists($template, 'assign_vars') )
+    {
+      $template->assign_vars(array(
+          'PAGE_NAME' => $page_name
+        ));
+    }
+    else
+    {
+      $template->tpl_strings['PAGE_NAME'] = $page_name;
+    }
     
     $template->header();
     echo '&lt; <a href="' . makeUrlNS('Blog', $row['username']) . '">' . htmlspecialchars($row['blog_name']) . '</a>';
@@ -392,7 +407,17 @@ function nuggie_blog_index($username)
     return false;
   }
   
-  $template->tpl_strings['PAGE_NAME'] = htmlspecialchars($blog_name) . ' &raquo; ' . htmlspecialchars($blog_subtitle);
+  $page_name = htmlspecialchars($blog_name) . ' &raquo; ' . htmlspecialchars($blog_subtitle);
+  if ( method_exists($template, 'assign_vars') )
+  {
+    $template->assign_vars(array(
+        'PAGE_NAME' => $page_name
+      ));
+  }
+  else
+  {
+    $template->tpl_strings['PAGE_NAME'] = $page_name;
+  }
   
   $postbit = new NuggiePostbit();
   // $q, $tpl_text, $num_results, $result_url, $start = 0, $perpage = 10, $callers = Array(), $header = '', $footer = ''

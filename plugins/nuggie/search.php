@@ -15,7 +15,7 @@
 $plugins->attachHook('search_global_inner', 'nuggie_search($query, $query_phrase, $scores, $page_data, $case_sensitive, $word_list);');
 
 /**
- * Searches the forums for the specified search terms. Called from a hook.
+ * Searches the site's blog database for the specified search terms. Called from a hook.
  * @access private
  */
 
