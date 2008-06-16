@@ -21,7 +21,13 @@ function nuggie_planet_uri_handler($page)
 {
   global $db, $session, $paths, $template, $plugins; // Common objects
   
-  $planet_id = $page->page_id;
+  $planet_id = dirtify_page_id($page->page_id);
+  $offset = 0;
+  if ( preg_match('#/start=([0-9]+)$#', $planet_id, $match) )
+  {
+    $planet_id = substr($planet_id, 0, (strlen($planet_id) - strlen($match[0])));
+    $offset = intval($match[1]);
+  }
   
   //
   // VALIDATION
@@ -42,7 +48,7 @@ function nuggie_planet_uri_handler($page)
   if ( $db->numrows() < 1 )
   {
     // planet not found, fall out
-    return false;
+    return $page->err_page_not_existent();
   }
   
   // fetch first row, then seek back to the first result to allow mapping fetching later
@@ -61,8 +67,76 @@ function nuggie_planet_uri_handler($page)
     return $page->err_access_denied();
   }
   
-  // fetch mappings to prepare to select the actual blog data
-  echo 'WiP';
+  // Set page title
+  $page_title = dirtify_page_id($planet_data['planet_name']);
+  $template->assign_vars(array(
+      'PAGE_NAME' => htmlspecialchars($page_title)
+    ));
+  
+  // Try to grab the posts. The SQL tricks here are rather interesting, you'll have to look at it from a distance to grasp it.
+  // Basically just using MySQL to apply all the filters in one go. Nuggie doesn't do PostgreSQL yet.
+  $sql_base = "SELECT <columns>\n"
+       . "  FROM " . table_prefix . "blog_posts AS p\n"
+       . "  LEFT JOIN " . table_prefix . "blogs AS b\n"
+       . "    ON ( b.user_id = p.post_author )\n"
+       . "  LEFT JOIN " . table_prefix . "users AS u\n"
+       . "    ON ( u.user_id = p.post_author )\n"
+       . "  LEFT JOIN " . table_prefix . "comments AS c\n"
+       . "    ON ( c.page_id = CAST(p.post_id AS char) AND c.namespace = 'BlogPost' )\n"
+       . "  LEFT JOIN " . table_prefix . "tags AS t\n"
+       . "    ON ( t.page_id = CAST(p.post_id AS char) AND t.namespace = 'BlogPost' )\n"
+       . "  LEFT JOIN " . table_prefix . "planets_mapping AS m\n"
+       . "    ON (\n"
+       . "         ( m.mapping_type = " . NUGGIE_PLANET_FILTER_TAG . " AND m.mapping_value = t.tag_name  ) OR\n"
+       . "         ( m.mapping_type = " . NUGGIE_PLANET_FILTER_AUTHOR . " AND CAST(m.mapping_value AS unsigned integer) = p.post_author ) OR\n"
+       . "         ( m.mapping_type = " . NUGGIE_PLANET_FILTER_KEYWORD . " AND ( p.post_text LIKE CONCAT('%', m.mapping_value, '%') OR p.post_title LIKE CONCAT('%', m.mapping_value, '%') ) )\n"
+       . "       )\n"
+       . "  WHERE m.planet_id = {$planet_data['planet_id']}\n"
+       . "    AND p.post_published = 1\n"
+       . "  GROUP BY p.post_id\n"
+       . "  ORDER BY p.post_timestamp DESC\n"
+       . "  <limit>;";
+       
+  // pass 1: a test run to count the number of results
+  $sql = str_replace('<columns>', 'p.post_id', $sql_base);
+  $sql = str_replace('<limit>', "", $sql);
+  $q = $db->sql_query($sql);
+  if ( !$q )
+    $db->_die();
+  
+  $count = $db->numrows();
+  $db->free_result($sql);
+  
+  // pass 2: production run
+  $columns = 'p.post_id, p.post_title, p.post_title_clean, p.post_author, p.post_timestamp, p.post_text, b.blog_name, b.blog_subtitle, b.blog_type, b.allowed_users, u.username, u.user_level, COUNT(c.comment_id) AS num_comments, \'' . $db->escape($planet_id) . '\' AS referring_planet';
+  $sql = str_replace('<columns>', $columns, $sql_base);
+  $sql = str_replace('<limit>', "LIMIT $offset, 10", $sql);
+  
+  // yea. that was one query.
+  $q = $db->sql_unbuffered_query($sql);
+  if ( !$q )
+    $db->_die();
+  
+  // just let the paginator do the rest
+  $postbit = new NuggiePostbit();
+  // $q, $tpl_text, $num_results, $result_url, $start = 0, $perpage = 10, $callers = Array(), $header = '', $footer = ''
+  $html = paginate(
+      $q,
+      '{post_id}',
+      $count,
+      makeUrlNS('Planet', "$planet_id/start=%s", true),
+      0,
+      10,
+      array( 'post_id' => array($postbit, 'paginate_handler') ),
+      '<span class="menuclear"></span>'
+    );
+  $db->free_result($q);
+  
+  $template->add_header('<link rel="stylesheet" type="text/css" href="' . scriptPath . '/plugins/nuggie/style.css" />');
+  $template->header();
+  echo $planet_data['planet_subtitle'];
+  echo $html;
+  $template->footer();
 }
  
 ?>

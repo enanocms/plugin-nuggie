@@ -87,6 +87,13 @@ class NuggiePostbit
   var $blog_perms;
   
   /**
+   * The name of the planet referred, if any. Defaults to false.
+   * @var string
+   */
+  
+  var $referring_planet = false;
+  
+  /**
    * Renders the post.
    */
   
@@ -148,9 +155,15 @@ TPLBLOCK;
       $strings["DATE_$char"] = date($char, $this->post_timestamp);
     }
     
+    $permalink_params = '';
+    if ( $this->referring_planet )
+    {
+      $permalink_params = "planet=" . sanitize_page_id($this->referring_planet);
+    }
+    
     $strings['POST_TITLE'] = htmlspecialchars($this->post_title);
     $strings['POST_TEXT'] = RenderMan::render($this->post_text);
-    $strings['PERMALINK'] = makeUrlNS('Blog', $this->post_author . date('/Y/n/j/', $this->post_timestamp) . $this->post_title_clean, false, true);
+    $strings['PERMALINK'] = makeUrlNS('Blog', $this->post_author . date('/Y/n/j/', $this->post_timestamp) . $this->post_title_clean, $permalink_params, true);
     $strings['EDIT_LINK'] = makeUrlNS('Special', "Preferences/Blog/Write/{$this->post_id}", false, true);
     
     // if we're on an enano with user rank support, cool. if not, just don't link
@@ -198,12 +211,24 @@ TPLBLOCK;
     $perms = $session->fetch_page_acl("{$row['post_timestamp']}_{$row['post_id']}", 'Blog');
     $perms->perms = $session->acl_merge($this->blog_perms->perms, $perms->perms);
     
-    /*
+    // if the row has information about the blog's access configuration, process it here.
+    // this is only done from within planets...
+    if ( isset($row['blog_type']) && isset($row['allowed_users']) )
+    {
+      if ( $row['blog_type'] == 'private' )
+      {
+        $users = unserialize($row['allowed_users']);
+        if ( !in_array($session->user_id, $users) && !$perms->get_permissions('nuggie_see_non_public') && $row['post_author'] !== $session->user_id )
+        {
+          return ' ';
+        }
+      }
+    }
+    
     if ( !$perms->get_permissions('read') )
     {
-      return "POST {$this->post_id} DENIED";
+      return ' ';
     }
-    */
     
     $this->post_id = intval($row['post_id']);
     $this->post_title = $row['post_title'];
@@ -211,6 +236,7 @@ TPLBLOCK;
     $this->post_author = $row['username'];
     $this->post_timestamp = intval($row['post_timestamp']);
     $this->num_comments = intval($row['num_comments']);
+    $this->referring_planet = ( isset($row['referring_planet']) ) ? $row['referring_planet'] : false;
     
     return $this->render_post();
   }
@@ -274,13 +300,14 @@ function nuggie_blog_uri_handler($page)
     
     if ( $db->numrows() > 1 )
     {
-      die_friendly('Ambiguous blog posts', '<p>FIXME: You have two posts with the same title posted on the same day by the same user. I was
+      die_friendly('Ambiguous blog posts', '<p>[fixme] You have two posts with the same title posted on the same day by the same user. I was
                                                not able to distinguish which post you wish to view.</p>');
     }
     
     $row = $db->fetchrow();
     
     $realpost = new PageProcessor($row['post_id'], 'BlogPost');
+    $realpost->send_headers = true;
     
     // huge hack
     // the goal here is to fool the page metadata system into thinking that comments are enabled.
@@ -365,7 +392,9 @@ function nuggie_blogpost_uri_handler($page)
   $acl_type = ( $row['post_author'] == $session->user_id ) ? 'nuggie_edit_own' : 'nuggie_edit_other';
   
   if ( !$perms->get_permissions('read') )
+  {
     return $page->err_access_denied();
+  }
   
   // enable comments
   $paths->cpage['comments_on'] = 1;
@@ -397,7 +426,14 @@ function nuggie_blogpost_uri_handler($page)
   }
   
   $template->header();
-  echo '&lt; <a href="' . makeUrlNS('Blog', $row['username']) . '">' . htmlspecialchars($row['blog_name']) . '</a>';
+  if ( isset($_GET['planet']) )
+  {
+    echo '&lt; <a href="' . makeUrlNS('Planet', $_GET['planet']) . '">' . htmlspecialchars($_GET['planet']) . '</a>';
+  }
+  else
+  {
+    echo '&lt; <a href="' . makeUrlNS('Blog', $row['username']) . '">' . htmlspecialchars($row['blog_name']) . '</a>';
+  }
   echo $postbit->render_post();
   display_page_footers();
   $template->footer();
@@ -427,7 +463,7 @@ function nuggie_blog_index($username)
     $allowed_users = unserialize($allowed_users);
     if ( !in_array($session->username, $allowed_users) && !$perms->get_permissions('nuggie_see_non_public') && $username != $session->username )
     {
-      return '_err_access_denied';
+      return $page->err_access_denied();
     }
   }
   

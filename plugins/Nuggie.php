@@ -84,10 +84,14 @@ function nuggie_namespace_setup()
   $session->acl_extend_scope('edit_comments', 'BlogPost', $paths);
   $session->acl_extend_scope('post_comments', 'BlogPost', $paths);
   $session->acl_extend_scope('mod_comments', 'BlogPost', $paths);
+  $session->acl_extend_scope('tag_create', 'BlogPost', $paths);
+  $session->acl_extend_scope('tag_delete_own', 'BlogPost', $paths);
+  $session->acl_extend_scope('tag_delete_other', 'BlogPost', $paths);
 }
 
 $plugins->attachHook('page_type_string_set', 'nuggie_set_page_string();');
 
+require( ENANO_ROOT . '/plugins/nuggie/constants.php' );
 require( ENANO_ROOT . '/plugins/nuggie/planet.php' );
 require( ENANO_ROOT . '/plugins/nuggie/postbit.php' );
 
