@@ -39,3 +39,11 @@ CREATE TABLE {{TABLE_PREFIX}}blog_posts(
   PRIMARY KEY ( post_id )
 ) ENGINE = MyISAM CHARACTER SET utf8 COLLATE utf8_bin;
 
+CREATE TABLE {{TABLE_PREFIX}}planets_mapping(
+  mapping_id int(15) NOT NULL auto_increment,
+  planet_id smallint(6) NOT NULL,
+  mapping_type smallint(3) NOT NULL DEFAULT 1,
+  mapping_value text NOT NULL,
+  PRIMARY KEY ( mapping_id )
+) ENGINE = MyISAM CHARACTER SET utf8 COLLATE utf8_bin;
+

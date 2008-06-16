@@ -59,6 +59,11 @@ function nuggie_namespace_setup()
   
   $paths->create_namespace('Blog', 'Blog:');
   $paths->create_namespace('Planet', 'Planet:');
+  $paths->create_namespace('BlogPost', 'Blog_post:');
+  
+  // Register namespace processors
+  $paths->register_namespace_processor('BlogPost', 'nuggie_blogpost_uri_handler');
+  $paths->register_namespace_processor('Planet', 'nuggie_planet_uri_handler');
   
   // Create custom permissions for Nuggie
   
@@ -75,13 +80,16 @@ function nuggie_namespace_setup()
   
   // Extend the core permission set
   
-  $session->acl_extend_scope('read', 'Blog|Planet', $paths);
-  $session->acl_extend_scope('edit_comments', 'Blog', $paths);
-  $session->acl_extend_scope('post_comments', 'Blog', $paths);
-  $session->acl_extend_scope('mod_comments', 'Blog', $paths);
+  $session->acl_extend_scope('read', 'Blog|Planet|BlogPost', $paths);
+  $session->acl_extend_scope('edit_comments', 'BlogPost', $paths);
+  $session->acl_extend_scope('post_comments', 'BlogPost', $paths);
+  $session->acl_extend_scope('mod_comments', 'BlogPost', $paths);
 }
 
 $plugins->attachHook('page_type_string_set', 'nuggie_set_page_string();');
+
+require( ENANO_ROOT . '/plugins/nuggie/planet.php' );
+require( ENANO_ROOT . '/plugins/nuggie/postbit.php' );
 
 function nuggie_set_page_string()
 {
@@ -112,8 +120,7 @@ function nuggie_handle_namespace($processor)
   
   if ( $processor->namespace == 'Blog' )
   {
-    require( ENANO_ROOT . '/plugins/nuggie/postbit.php' );
-    $result = nuggie_blog_uri_handler($processor->page_id);
+    $result = nuggie_blog_uri_handler($processor);
     if ( $result === '_err_access_denied' )
     {
       $processor->err_access_denied();
@@ -122,12 +129,7 @@ function nuggie_handle_namespace($processor)
   }
   else if ( $processor->namespace == 'Planet' )
   {
-    $result = nuggie_planet_uri_handler($processor->page_id);
-    if ( $result === '_err_access_denied' )
-    {
-      $processor->err_access_denied();
-      return true;
-    }
+    // revision 7: never called anymore
   }
 }
 

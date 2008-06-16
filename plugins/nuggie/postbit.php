@@ -216,9 +216,12 @@ TPLBLOCK;
   }
 }
 
-function nuggie_blog_uri_handler($uri)
+function nuggie_blog_uri_handler($page)
 {
   global $db, $session, $paths, $template, $plugins; // Common objects
+  
+  $uri = $page->page_id;
+  
   $template->add_header('<link rel="stylesheet" type="text/css" href="' . scriptPath . '/plugins/nuggie/style.css" />');
   if ( strstr($uri, '/') )
   {
@@ -256,20 +259,15 @@ function nuggie_blog_uri_handler($uri)
     $ptc = $db->escape($post_title_clean);
     $uname = $db->escape(dirtify_page_id($poster));
     
-    $q = $db->sql_query("SELECT p.post_id, p.post_title, p.post_title_clean, p.post_author, p.post_timestamp, p.post_text, b.blog_name,\n"
-                      . "       b.blog_subtitle, b.blog_type, b.allowed_users, u.username, u.user_level, COUNT(c.comment_id) AS num_comments\n"
+    $q = $db->sql_query("SELECT p.post_id\n"
                       . "      FROM " . table_prefix . "blog_posts AS p\n"
-                      . "  LEFT JOIN " . table_prefix . "blogs AS b\n"
-                      . "    ON ( b.user_id = p.post_author )\n"
                       . "  LEFT JOIN " . table_prefix . "users AS u\n"
                       . "    ON ( u.user_id = p.post_author )\n"
-                      . "  LEFT JOIN " . table_prefix . "comments AS c\n"
-                      . "    ON ( ( c.page_id = '{$particlecomp}' AND c.namespace = 'Blog' ) OR ( c.page_id IS NULL AND c.namespace IS NULL ) )\n"
                       . "  WHERE p.post_timestamp >= $time_min AND p.post_timestamp <= $time_max\n"
                       . "    AND p.post_title_clean = '$ptc' AND u.username = '$uname'\n"
                       . "  GROUP BY p.post_id;");
     if ( !$q )
-      $db->_die('Nuggie post handler selecting main post data');
+      $db->_die('Nuggie post handler doing name- and date-based lookup');
     
     if ( $db->numrows() < 1 )
       return false;
@@ -282,59 +280,29 @@ function nuggie_blog_uri_handler($uri)
     
     $row = $db->fetchrow();
     
-    //
-    // Determine permissions
-    //
+    $realpost = new PageProcessor($row['post_id'], 'BlogPost');
     
-    // The way we're doing this is first fetching permissions for the blog, and then merging them
-    // with permissions specific to the post. This way the admin can set custom permissions for the
-    // entire blog, and they'll be inherited unless individual posts have overriding permissions.
-    $perms_blog = $session->fetch_page_acl($row['username'], 'Blog');
-    $perms = $session->fetch_page_acl("{$row['post_timestamp']}_{$row['post_id']}", 'Blog');
-    $perms->perms = $session->acl_merge($perms->perms, $perms_blog->perms);
-    unset($perms_blog);
-    
-    if ( $row['blog_type'] == 'private' )
+    // huge hack
+    // the goal here is to fool the page metadata system into thinking that comments are enabled.
+    $paths->cpage['comments_on'] = 1;
+    if ( !isset($paths->pages[$paths->nslist['BlogPost'] . $row['post_id']]) )
     {
-      $allowed_users = unserialize($row['allowed_users']);
-      if ( !in_array($session->username, $allowed_users) && !$perms->get_permissions('nuggie_see_non_public') && $row['username'] != $session->username )
-      {
-        return '_err_access_denied';
-      }
+      $paths->pages[$paths->nslist['BlogPost'] . $row['post_id']] = array(
+          'urlname' => $paths->nslist['BlogPost'] . $row['post_id'],
+          'urlname_nons' => $row['post_id'],
+          'name' => 'determined at runtime',
+          'comments_on' => 1,
+          'special' => 0,
+          'wiki_mode' => 0,
+          'protected' => 1,
+          'delvotes' => 0
+        );
     }
-    
-    $acl_type = ( $row['post_author'] == $session->user_id ) ? 'nuggie_edit_own' : 'nuggie_edit_other';
-    
-    if ( !$perms->get_permissions('read') )
-      return '_err_access_denied';
-    
-    // We're validated - display post
-    $postbit = new NuggiePostbit();
-    $postbit->post_id = intval($row['post_id']);
-    $postbit->post_title = $row['post_title'];
-    $postbit->post_text = $row['post_text'];
-    $postbit->post_author = $row['username'];
-    $postbit->post_timestamp = intval($row['post_timestamp']);
-    $postbit->auth_edit = $perms->get_permissions($acl_type);
-    $postbit->num_comments = intval($row['num_comments']);
-    
-    $page_name = htmlspecialchars($row['post_title']) . ' &laquo; ' . htmlspecialchars($row['blog_name']);
-    if ( method_exists($template, 'assign_vars') )
-    {
-      $template->assign_vars(array(
-          'PAGE_NAME' => $page_name
-        ));
-    }
-    else
-    {
-      $template->tpl_strings['PAGE_NAME'] = $page_name;
-    }
-    
-    $template->header();
-    echo '&lt; <a href="' . makeUrlNS('Blog', $row['username']) . '">' . htmlspecialchars($row['blog_name']) . '</a>';
-    echo $postbit->render_post();
-    display_page_footers();
-    $template->footer();
+    $realpost->page_exists = true;
+    // end huge hack
+      
+    $template->init_vars($realpost);
+    $realpost->send();
     
     return true;
   }
@@ -342,6 +310,97 @@ function nuggie_blog_uri_handler($uri)
   {
     return nuggie_blog_index($uri);
   }
+}
+
+function nuggie_blogpost_uri_handler($page)
+{
+  global $db, $session, $paths, $template, $plugins; // Common objects
+  
+  if ( !preg_match('/^[0-9]+$/', $page->page_id) )
+  {
+    return $page->err_page_not_existent();
+  }
+  
+  // using page_id is SAFE. It's checked with a regex above.
+  $q = $db->sql_query("SELECT p.post_id, p.post_title, p.post_title_clean, p.post_author, p.post_timestamp, p.post_text, b.blog_name,\n"
+                    . "       b.blog_subtitle, b.blog_type, b.allowed_users, u.username, u.user_level, COUNT(c.comment_id) AS num_comments\n"
+                    . "      FROM " . table_prefix . "blog_posts AS p\n"
+                    . "  LEFT JOIN " . table_prefix . "blogs AS b\n"
+                    . "    ON ( b.user_id = p.post_author )\n"
+                    . "  LEFT JOIN " . table_prefix . "users AS u\n"
+                    . "    ON ( u.user_id = p.post_author )\n"
+                    . "  LEFT JOIN " . table_prefix . "comments AS c\n"
+                    . "    ON ( ( c.page_id = '{$page->page_id}' AND c.namespace = 'BlogPost' ) OR ( c.page_id IS NULL AND c.namespace IS NULL ) )\n"
+                    . "  WHERE p.post_id = {$page->page_id}\n"
+                    . "  GROUP BY p.post_id;");
+  if ( !$q )
+    $db->_die('Nuggie post handler selecting main post data');
+  
+  if ( $db->numrows() < 1 )
+    return false;
+  
+  $row = $db->fetchrow();
+  
+  //
+  // Determine permissions
+  //
+  
+  // The way we're doing this is first fetching permissions for the blog, and then merging them
+  // with permissions specific to the post. This way the admin can set custom permissions for the
+  // entire blog, and they'll be inherited unless individual posts have overriding permissions.
+  $perms_blog = $session->fetch_page_acl($row['username'], 'Blog');
+  $perms = $session->fetch_page_acl("{$row['post_timestamp']}_{$row['post_id']}", 'Blog');
+  $perms->perms = $session->acl_merge($perms->perms, $perms_blog->perms);
+  unset($perms_blog);
+  
+  if ( $row['blog_type'] == 'private' )
+  {
+    $allowed_users = unserialize($row['allowed_users']);
+    if ( !in_array($session->username, $allowed_users) && !$perms->get_permissions('nuggie_see_non_public') && $row['username'] != $session->username )
+    {
+      return $page->err_access_denied();
+    }
+  }
+  
+  $acl_type = ( $row['post_author'] == $session->user_id ) ? 'nuggie_edit_own' : 'nuggie_edit_other';
+  
+  if ( !$perms->get_permissions('read') )
+    return $page->err_access_denied();
+  
+  // enable comments
+  $paths->cpage['comments_on'] = 1;
+  // disable editing
+  $session->acl_merge_with_current(array(
+      'edit_page' => AUTH_DENY
+    ));
+  
+  // We're validated - display post
+  $postbit = new NuggiePostbit();
+  $postbit->post_id = intval($row['post_id']);
+  $postbit->post_title = $row['post_title'];
+  $postbit->post_text = $row['post_text'];
+  $postbit->post_author = $row['username'];
+  $postbit->post_timestamp = intval($row['post_timestamp']);
+  $postbit->auth_edit = $perms->get_permissions($acl_type);
+  $postbit->num_comments = intval($row['num_comments']);
+  
+  $page_name = htmlspecialchars($row['post_title']) . ' &laquo; ' . htmlspecialchars($row['blog_name']);
+  if ( method_exists($template, 'assign_vars') )
+  {
+    $template->assign_vars(array(
+        'PAGE_NAME' => $page_name
+      ));
+  }
+  else
+  {
+    $template->tpl_strings['PAGE_NAME'] = $page_name;
+  }
+  
+  $template->header();
+  echo '&lt; <a href="' . makeUrlNS('Blog', $row['username']) . '">' . htmlspecialchars($row['blog_name']) . '</a>';
+  echo $postbit->render_post();
+  display_page_footers();
+  $template->footer();
 }
 
 function nuggie_blog_index($username)
@@ -394,7 +453,7 @@ function nuggie_blog_index($username)
                     . "  LEFT JOIN " . table_prefix . "users AS u\n"
                     . "    ON ( u.user_id = p.post_author )\n"
                     . "  LEFT JOIN " . table_prefix . "comments AS c\n"
-                    . "    ON ( ( c.page_id REGEXP CONCAT('([0-9]+)/([0-9]+)/([0-9]+)/', p.post_title_clean) AND c.namespace = 'Blog' ) OR ( c.page_id IS NULL AND c.namespace IS NULL ) )\n"
+                    . "    ON ( ( c.page_id = CAST(p.post_id AS char) AND c.namespace = 'BlogPost' ) OR ( c.page_id IS NULL AND c.namespace IS NULL ) )\n"
                     . "  WHERE p.post_author = $user_id AND p.post_published = 1\n"
                     . "  GROUP BY p.post_id\n"
                     . "  ORDER BY p.post_timestamp DESC;");
