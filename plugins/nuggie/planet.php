@@ -105,6 +105,7 @@ function nuggie_planet_uri_handler($page)
     $db->_die();
   
   $count = $db->numrows();
+  
   $db->free_result($sql);
   
   // pass 2: production run
@@ -113,7 +114,7 @@ function nuggie_planet_uri_handler($page)
   $sql = str_replace('<limit>', "LIMIT $offset, 10", $sql);
   
   // yea. that was one query.
-  $q = $db->sql_unbuffered_query($sql);
+  $q = $db->sql_query($sql);
   if ( !$q )
     $db->_die();
   
