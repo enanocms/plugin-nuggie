@@ -28,5 +28,5 @@ div.blog-post-header h3 a:hover {
   color: #305070;
 }
 div.blog-post-body {
-  clear: both;
+  /* clear: both; */
 }
