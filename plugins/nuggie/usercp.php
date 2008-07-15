@@ -132,7 +132,7 @@ function nuggie_user_cp($section)
             
             if ( $initted )
             {
-              $sql = 'UPDATE ' . table_prefix . "blogs SET blog_name = '$blog_name', blog_subtitle = '$blog_desc', blog_type = '$blog_access', allowed_users = $allowed_users;";
+              $sql = 'UPDATE ' . table_prefix . "blogs SET blog_name = '$blog_name', blog_subtitle = '$blog_desc', blog_type = '$blog_access', allowed_users = $allowed_users WHERE user_id = {$session->user_id};";
             }
             else
             {
