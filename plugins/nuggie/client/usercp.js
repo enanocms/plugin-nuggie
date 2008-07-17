@@ -17,6 +17,9 @@ function ajaxNuggieDeletePost(id, row)
   
   _global_ng_row = row;
   
+  if ( typeof(load_component) == 'function' )
+    load_component('SpryEffects');
+  
   try
   {
     ajaxPost(makeUrlNS('Special', 'Preferences/Blog/Posts/AjaxHandler'), 'act=delete&post_id=' + id, function()
