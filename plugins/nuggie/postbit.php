@@ -174,7 +174,7 @@ TPLBLOCK;
     }
     else
     {
-      $strings['USER_LINK'] = '<a href="' . makeUrlNS('User', $this->post_author, false, true) . '" style="' . $rank_data['rank_style'] . '">' . htmlspecialchars($this->post_author) . '</a>';
+      $strings['USER_LINK'] = '<a href="' . makeUrlNS('User', $this->post_author, false, true) . '">' . htmlspecialchars($this->post_author) . '</a>';
     }
     
     if ( $this->num_comments == 0 )
@@ -348,6 +348,8 @@ function nuggie_blogpost_uri_handler($page)
     return $page->err_page_not_existent();
   }
   
+  $template->add_header('<link rel="stylesheet" type="text/css" href="' . scriptPath . '/plugins/nuggie/style.css" />');
+  
   // using page_id is SAFE. It's checked with a regex above.
   $q = $db->sql_query("SELECT p.post_id, p.post_title, p.post_title_clean, p.post_author, p.post_timestamp, p.post_text, b.blog_name,\n"
                     . "       b.blog_subtitle, b.blog_type, b.allowed_users, u.username, u.user_level, COUNT(c.comment_id) AS num_comments\n"
@@ -500,6 +502,30 @@ function nuggie_blog_index($username)
   {
     // Either the user hasn't created a blog yet, or he isn't even registered
     return false;
+  }
+  
+  // RSS check - do we have support for Feed Me and did the user request an RSS feed?
+  $do_rss = defined('ENANO_FEEDBURNER_INCLUDED') && ( isset($_GET['feed']) && $_GET['feed'] === 'rss2' );
+  
+  // RSS feed?
+  if ( $do_rss )
+  {
+    header('Content-type: text/xml; charset=utf-8');
+    global $aggressive_optimize_html;
+    $aggressive_optimize_html = false;
+    $rss = new RSS(
+      $blog_name,
+      $blog_subtitle,
+      makeUrlComplete('Blog', $username)
+    );
+    while ( $row = $db->fetchrow($q) )
+    {
+      $permalink = makeUrlNS('Blog', sanitize_page_id($row['username']) . date('/Y/n/j/', intval($row['post_timestamp'])) . $row['post_title_clean'], false, true);
+      $post = RenderMan::render($row['post_text']);
+      $rss->add_item($row['post_title'], $permalink, $post, intval($row['post_timestamp']));
+    }
+    echo $rss->render();
+    return;
   }
   
   $page_name = htmlspecialchars($blog_name) . ' &raquo; ' . htmlspecialchars($blog_subtitle);

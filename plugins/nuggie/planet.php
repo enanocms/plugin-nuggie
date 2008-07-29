@@ -108,15 +108,44 @@ function nuggie_planet_uri_handler($page)
   
   $db->free_result($sql);
   
+  // RSS check - do we have support for Feed Me and did the user request an RSS feed?
+  $do_rss = defined('ENANO_FEEDBURNER_INCLUDED') && ( isset($_GET['feed']) && $_GET['feed'] === 'rss2' );
+  $query_limit = $do_rss ? 50 : 10;
+  if ( $do_rss )
+  {
+    $offset = 0;
+  }
+  
   // pass 2: production run
   $columns = 'p.post_id, p.post_title, p.post_title_clean, p.post_author, p.post_timestamp, p.post_text, b.blog_name, b.blog_subtitle, b.blog_type, b.allowed_users, u.username, u.user_level, COUNT(c.comment_id) AS num_comments, \'' . $db->escape($planet_id) . '\' AS referring_planet';
   $sql = str_replace('<columns>', $columns, $sql_base);
-  $sql = str_replace('<limit>', "LIMIT $offset, 10", $sql);
+  $sql = str_replace('<limit>', "LIMIT $offset, $query_limit", $sql);
   
   // yea. that was one query.
   $q = $db->sql_query($sql);
   if ( !$q )
     $db->_die();
+  
+  // RSS feed?
+  if ( $do_rss )
+  {
+    header('Content-type: text/xml; charset=utf-8');
+    global $aggressive_optimize_html;
+    $aggressive_optimize_html = false;
+    $rss = new RSS(
+      getConfig('site_name') . ': ' . $planet_data['planet_name'],
+      $planet_data['planet_subtitle'],
+      makeUrlComplete('Planet', $planet_id)
+    );
+    while ( $row = $db->fetchrow($q) )
+    {
+      $permalink = makeUrlNS('Blog', sanitize_page_id($row['username']) . date('/Y/n/j/', intval($row['post_timestamp'])) . $row['post_title_clean'], false, true);
+      $post = RenderMan::render($row['post_text']);
+      $rss->add_item($row['post_title'], $permalink, $post, intval($row['post_timestamp']));
+    }
+    echo $rss->render();
+    return;
+  }
   
   // just let the paginator do the rest
   $postbit = new NuggiePostbit();
