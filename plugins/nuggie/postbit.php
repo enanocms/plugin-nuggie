@@ -540,6 +540,18 @@ function nuggie_blog_index($username)
     $template->tpl_strings['PAGE_NAME'] = $page_name;
   }
   
+  // Add the link to the feed
+  $rss_link = '';
+  if ( defined('ENANO_FEEDBURNER_INCLUDED') )
+  {
+    $rss_link = '<p style="float: left;">
+                   <a class="abutton" href="' . makeUrlNS('Blog', $username, 'feed=rss2', true) . '">
+                     <img alt=" " src="' . scriptPath . '/plugins/nuggie/images/feed.png" />
+                     RSS feed
+                   </a>
+                 </p>';
+  }
+  
   $postbit = new NuggiePostbit();
   // $q, $tpl_text, $num_results, $result_url, $start = 0, $perpage = 10, $callers = Array(), $header = '', $footer = ''
   $html = paginate(
@@ -550,7 +562,8 @@ function nuggie_blog_index($username)
       0,
       10,
       array( 'post_id' => array($postbit, 'paginate_handler') ),
-      '<span class="menuclear"></span>'
+      '<span class="menuclear"></span>',
+      $rss_link
     );
   
   $template->header();

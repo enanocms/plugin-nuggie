@@ -147,6 +147,18 @@ function nuggie_planet_uri_handler($page)
     return;
   }
   
+  // Add the link to the feed
+  $rss_link = '';
+  if ( defined('ENANO_FEEDBURNER_INCLUDED') )
+  {
+    $rss_link = '<p style="float: left;">
+                   <a class="abutton" href="' . makeUrlNS('Planet', $planet_id, 'feed=rss2', true) . '">
+                     <img alt=" " src="' . scriptPath . '/plugins/nuggie/images/feed.png" />
+                     RSS feed
+                   </a>
+                 </p>';
+  }
+  
   // just let the paginator do the rest
   $postbit = new NuggiePostbit();
   // $q, $tpl_text, $num_results, $result_url, $start = 0, $perpage = 10, $callers = Array(), $header = '', $footer = ''
@@ -158,7 +170,8 @@ function nuggie_planet_uri_handler($page)
       0,
       10,
       array( 'post_id' => array($postbit, 'paginate_handler') ),
-      '<span class="menuclear"></span>'
+      '<span class="menuclear"></span>',
+      $rss_link
     );
   $db->free_result($q);
   
